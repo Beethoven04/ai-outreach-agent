@@ -1,0 +1,44 @@
+{
+  "SHEET_ID": "YOUR_GOOGLE_SHEET_ID",
+  "TELEGRAM_CHAT_ID": "YOUR_TELEGRAM_CHAT_ID",
+  "ERROR_WORKFLOW_ID": "YOUR_ERROR_WORKFLOW_ID",
+  "credentials": {
+    "googleSheetsOAuth2Api": {
+      "id": "YOUR_N8N_CREDENTIAL_ID",
+      "name": "Outreach · Google Sheets"
+    },
+    "gmailOAuth2": {
+      "id": "YOUR_N8N_CREDENTIAL_ID",
+      "name": "Outreach · Gmail"
+    },
+    "telegramApi": {
+      "id": "YOUR_N8N_CREDENTIAL_ID",
+      "name": "Outreach · Telegram bot"
+    },
+    "httpHeaderAuth_gemini": {
+      "id": "YOUR_N8N_CREDENTIAL_ID",
+      "name": "Outreach · Gemini API key"
+    },
+    "httpHeaderAuth_groq": {
+      "id": "YOUR_N8N_CREDENTIAL_ID",
+      "name": "Outreach · Groq API key"
+    },
+    "httpQueryAuth_hunter": {
+      "id": "YOUR_N8N_CREDENTIAL_ID",
+      "name": "Outreach · Hunter API key"
+    },
+    "httpQueryAuth_reoon": {
+      "id": "YOUR_N8N_CREDENTIAL_ID",
+      "name": "Outreach · Reoon API key"
+    }
+  },
+  "OWNER": {
+    "from_email": "you@gmail.com",
+    "other_emails": [
+      "you@yourdomain.com"
+    ],
+    "signature_leak_regex": "(\\+00 ?000|yourdomain\\.com|linkedin\\.com/in/you|you@)",
+    "phone": "+00 000 00 00 00",
+    "test_inbox": "you.test@gmail.com"
+  }
+}

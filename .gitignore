@@ -1,0 +1,45 @@
+# ---------- Private: never publish ----------
+# Real contacts, research output, trackers, CVs, drafts
+data/
+private/
+# Agent instructions with personal facts (public summary lives in docs/agent-roles.md)
+CLAUDE.md
+roles/
+
+# Secrets / real IDs
+.env
+*.env
+!.env.example
+n8n/build_config.json
+finder/service_account*.json
+**/service_account*.json
+*credentials*.json
+*.pem
+*.key
+
+# Generated n8n workflows contain the real Sheet ID / credential IDs (rebuild with build.py)
+n8n/workflows/
+# Test fixture built from the real sheet (tests use demo/sheet_fixture.demo.json in public)
+n8n/tests/sheet_fixture.json
+n8n/tests/run*.json
+n8n/tests/run*.err
+
+# Runtime output of the finder
+finder/out/
+finder/cache/
+*.sqlite
+*.db
+
+# ---------- Tooling ----------
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+*.log
+.idea/
+.vscode/
+
+# Generated mock workflows embed owner identifiers (rebuild: MOCK_BASE=... python3 build.py)
+n8n/tests/workflows_mock/

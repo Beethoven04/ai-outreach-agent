@@ -1,0 +1,19 @@
+# Reacher: open-source SMTP mailbox verifier (https://github.com/reacherhq/check-if-email-exists, AGPL-3.0, used unmodified).
+# Runs next to n8n on the server. Needs OUTBOUND port 25 (test first: see server/README.md).
+services:
+  reacher:
+    image: reacherhq/backend:latest
+    container_name: reacher
+    restart: unless-stopped
+    environment:
+      # Identity used in the SMTP handshake. Use a real domain you control (better acceptance by mail servers).
+      RCH__HELLO_NAME: "${REACHER_HELLO_NAME:-yourdomain.com}"
+      RCH__FROM_EMAIL: "${REACHER_FROM_EMAIL:-verify@yourdomain.com}"
+      # Shared secret: every request must send header  x-reacher-secret: <value>
+      RCH__HEADER_SECRET: "${REACHER_SECRET:?set REACHER_SECRET in server/.env}"
+      RCH__HTTP_HOST: "0.0.0.0"          # inside the container; the host port below stays localhost-only
+      RCH__SMTP_TIMEOUT: "45"
+      RCH__WORKER__ENABLE: "false"       # no RabbitMQ queue: simple one-request-at-a-time HTTP API
+    # Bound to localhost only: reach it from n8n (same host) or through an SSH tunnel. Never expose publicly.
+    ports:
+      - "127.0.0.1:8080:8080"
