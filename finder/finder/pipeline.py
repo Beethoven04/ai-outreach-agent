@@ -61,7 +61,7 @@ def _domain_format(intel, people):
     return None, "no staff addresses found"
 
 
-def candidates_for(person, intel, fmt):
+def candidates_for(person, intel, fmt, all_formats=False):
     dom = intel["domain"]
     out, seen = [], set()
 
@@ -84,8 +84,8 @@ def candidates_for(person, intel, fmt):
             add(e, src, (urls[0] if urls else ""))
     if fmt:
         add(f"{build(fmt, person['first_name'], person['last_name'])}@{dom}", "format", f"company format {fmt}")
-    for fm in DEFAULT_ORDER:
-        if len([c for c in out if c["source"] == "guess"]) >= 3:
+    for fm in (list(DEFAULT_ORDER) + [f for f in FORMATS if f not in DEFAULT_ORDER]) if all_formats else DEFAULT_ORDER:
+        if not all_formats and len([c for c in out if c["source"] == "guess"]) >= 3:
             break
         local = build(fm, person["first_name"], person["last_name"])
         if local:
@@ -98,7 +98,7 @@ def read_targets(path):
         return [r for r in csv.DictReader(fh) if (r.get("domain") or "").strip()]
 
 
-def run(targets_csv, out_csv, do_verify=True, max_guess_checks=3, use_github=True):
+def run(targets_csv, out_csv, do_verify=True, max_guess_checks=3, use_github=True, all_formats=False):
     people = read_targets(targets_csv)
     by_domain = {}
     for p in people:
@@ -112,7 +112,9 @@ def run(targets_csv, out_csv, do_verify=True, max_guess_checks=3, use_github=Tru
         for p in ppl:
             if not p.get("first_name"):
                 continue
-            cands = candidates_for(p, intel, fmt)
+            cands = candidates_for(p, intel, fmt, all_formats=all_formats)
+            if all_formats:
+                max_guess_checks = 99
             chosen, checks, tried, catch_all = None, [], [], False
             for c in cands:
                 if c["source"] == "guess" and len([t for t in tried if t["source"] == "guess"]) >= max_guess_checks:
@@ -127,11 +129,20 @@ def run(targets_csv, out_csv, do_verify=True, max_guess_checks=3, use_github=Tru
                     chosen = tried[-1]
                     break
             if not chosen:
-                # best non-invalid candidate, preferring published/github
+                # best non-invalid candidate: published/github/format first; on a catch-all domain the top guess
+                # (cannot be confirmed by anyone, so it stays `risky` and needs the owner's approval)
+                ok_src = ("public", "github", "format", "guess") if catch_all else ("public", "github", "format")
                 for t in tried:
-                    if t["verdict"] in ("risky", "unknown", "unchecked") and t["source"] in ("public", "github", "format"):
+                    if t["verdict"] in ("risky", "unknown", "unchecked") and t["source"] in ok_src:
                         chosen = t
                         break
+            if chosen and chosen["verdict"] == "valid" and chosen["source"] == "guess" and fmt \
+                    and fmt_note.startswith("inferred") \
+                    and build(fmt, p["first_name"], p["last_name"]) != chosen["email"].split("@")[0]:
+                # mailbox exists, but the company's confirmed format says this person's address looks different:
+                # it may belong to someone else with the same first name
+                chosen = {**chosen, "verdict": "risky",
+                          "detail": chosen["detail"] + f" | WARNING: company format is {fmt}; this mailbox may be another person"}
             results.append({
                 **{k: p.get(k, "") for k in ("org_id", "company", "domain", "city", "country", "type", "priority",
                                              "first_name", "last_name", "role", "is_primary", "source_url", "what", "why")},
@@ -182,3 +193,24 @@ def scan(pool_csv, out_csv, workers=6, use_github=True):
         w.writeheader()
         w.writerows(res)
     return res
+
+
+def export_candidates(targets_csv, out_txt, max_guess=3, all_formats=False, only=None):
+    """Every candidate address for every person (for batch verification elsewhere, e.g. a CI runner)."""
+    people = read_targets(targets_csv)
+    emails = []
+    for p in people:
+        if not p.get("first_name") or (only and (p["first_name"], p["last_name"]) not in only):
+            continue
+        intel = domain_intel(p["company"], p["domain"].strip().lower(), use_github=False)
+        fmt, _ = _domain_format(intel, [x for x in people if x["domain"] == p["domain"]])
+        guesses = 0
+        for c in candidates_for(p, intel, fmt, all_formats=all_formats):
+            if c["source"] == "guess":
+                guesses += 1
+                if guesses > max_guess and not all_formats:
+                    continue
+            emails.append(c["email"])
+    uniq = list(dict.fromkeys(emails))
+    open(out_txt, "w").write("\n".join(uniq) + "\n")
+    return uniq

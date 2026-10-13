@@ -7,7 +7,7 @@ end-to-end test file, so the 85 checks keep exercising exactly the same cases.
 Usage (from n8n/):  python3 tools/make_demo_fixture.py tests/sheet_fixture.json tests/e2e.test.js
 Writes: tests/sheet_fixture.demo.json and rewrites tests/e2e.test.js to use it.
 """
-import json
+import json, os
 import re
 import sys
 
@@ -108,8 +108,10 @@ def main(fixture, test_file):
     json.dump(out, open(demo, "w"), ensure_ascii=False)
     t = open(test_file).read()
     t = sub(t).replace("require('./sheet_fixture.json')", "require('./sheet_fixture.demo.json')")
-    t = t.replace("Claus T. Hansen", "John Q. Smith").replace("cth@example.com", "jqs@example.com") \
-         .replace("first_name === 'Claus'", "first_name === 'John'")   # referral example used a real name
+    # extra literal replacements for real names used inside the test file (kept out of the public repo)
+    extra = os.path.join(os.path.dirname(__file__), "..", "..", "private", "tools", "demo_extra_map.json")
+    for real, fake in (json.load(open(extra)).items() if os.path.exists(extra) else []):
+        t = t.replace(real, fake)
     open(test_file, "w").write(t)
     print(f"{len(rep)} replacements → {demo}; {test_file} now uses the demo fixture")
 

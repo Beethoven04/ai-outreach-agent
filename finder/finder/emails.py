@@ -54,7 +54,7 @@ def extract_emails(html: str) -> set:
 
 
 def ascii_name(s: str) -> str:
-    """'Søren Brokær' -> 'soren brokaer'. Nordic letters mapped the way companies usually do."""
+    """'Bjørn Ærø' -> 'bjorn aero'. Nordic letters mapped the way companies usually do."""
     s = (s or "").strip().lower()
     for a, b in (("æ", "ae"), ("ø", "o"), ("å", "a"), ("ä", "a"), ("ö", "o"), ("ü", "u"), ("ß", "ss")):
         s = s.replace(a, b)

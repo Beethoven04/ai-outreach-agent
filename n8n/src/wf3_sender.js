@@ -86,8 +86,7 @@ if (!pick) return [];
 const c = contacts[str(pick.contact_id)];
 const type = str(pick.type) || 'cold';
 
-// ---- build the MIME message (plain text, no tracking) ----
-const enc = s => (/^[\x20-\x7e]*$/.test(s) ? s : '=?UTF-8?B?' + Buffer.from(s, 'utf8').toString('base64') + '?=');
+// ---- build the MIME message (plain text + Gmail-style HTML, no tracking; buildRaw in common.js) ----
 const fromName = cfg.str('FROM_NAME', 'Louai Eddiaz');
 const fromEmail = cfg.str('FROM_EMAIL', '__OWNER_FROM__');
 const replyTo = cfg.str('REPLY_TO', fromEmail);
@@ -108,29 +107,45 @@ if (type !== 'cold') {
   }
 }
 if (mode === 'test') subject = `[TEST → ${realTo}] ${subject}`;
-const text = (str(pick.body).replace(/\r/g, '').trim() + (signature ? '\n\n' + signature : '')).replace(/\n/g, '\r\n');
-const headers = [
-  `From: ${enc(fromName)} <${fromEmail}>`,
-  `To: ${to}`,
-  `Reply-To: ${replyTo}`,
-  `Subject: ${enc(subject)}`,
-  'MIME-Version: 1.0',
-  'Content-Type: text/plain; charset="UTF-8"',
-  'Content-Transfer-Encoding: base64',
-];
-if (inReplyTo) headers.push(`In-Reply-To: ${inReplyTo}`, `References: ${refs.join(' ')}`);
-const b64body = Buffer.from(text, 'utf8').toString('base64').replace(/.{76}/g, '$&\r\n');
-const mime = headers.join('\r\n') + '\r\n\r\n' + b64body;
-const raw = Buffer.from(mime, 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const { raw, text } = buildRaw({ fromName, fromEmail, replyTo, to, subject, body: pick.body, signature, inReplyTo, refs });
 const gmail_payload = threadId ? { raw, threadId } : { raw };
 const jitter = Math.floor(Math.random() * (cfg.num('JITTER_SECONDS', 60) + 1));
+// last check before sending: did Louai already write to this address by hand (Gmail Sent, not in the sheet yet)?
+// cold: last REPLY_WATCH_DAYS days; follow-up/reply: since the email it follows
+const parentSent = type === 'cold' ? null : parseDT((byId[str(pick.parent_msg_id)] || {}).sent_at);
+const since = parentSent ? parentSent.minus({ minutes: 1 }) : n.minus({ days: cfg.num('REPLY_WATCH_DAYS', 60) });
+const guard_q = `in:sent (to:${realTo} OR cc:${realTo}) after:${Math.floor(since.toSeconds())}`;
 const W = Writer();
 W.setMany(M, pick._row, { status: 'sending', updated_at: iso() });
 return [{ json: {
-  mode, msg: pick, contact: c, to, realTo, subject, type, gmail_payload, jitter,
+  mode, msg: pick, contact: c, to, realTo, subject, type, gmail_payload, jitter, guard_q,
   preview: `To: ${to}\nSubject: ${subject}\n\n${text.replace(/\r\n/g, '\n')}`,
   lock: W.data, sentToday, blocked: blocked.slice(0, 20),
 } }];
+
+// ---- NODE: Manual send guard ----
+// @node send_guard
+// Gmail Sent has an email to this address that the sheet does not know → Louai sent something by hand. Never send on top
+// of it: the row goes on hold and the sync workflow (hourly) logs that email, then releases or closes the row.
+const p = $('Pick next email').first().json;
+const T = tablesFrom($('Read Sheet').first().json);
+const M = T.Messages;
+const res = $input.first().json || {};
+const W = Writer();
+heartbeat(W, T, 'LAST_RUN_SENDER');
+if (res.error) { // cannot check → do not send now (nothing locked yet); next run tries again
+  return [{ json: { ...p, guard_ok: false, data: W.data, notices: [],
+    logs: [logRow('Sender', 'warn', 'manual_check_failed', p.msg.msg_id, p.msg.contact_id, `Gmail Sent search failed, not sent this run: ${JSON.stringify(res.error).slice(0, 300)}`)] } }];
+}
+const known = new Set(M.rows.map(m => str(m.gmail_message_id).trim()).filter(Boolean));
+const unknown = (res.messages || []).map(x => x.id).filter(id => id && !known.has(id));
+if (!unknown.length) return [{ json: { ...p, guard_ok: true } }];
+const who = `${p.contact.full_name || p.contact.first_name} (${p.contact.company})`;
+W.setMany(M, p.msg._row, { status: 'held', updated_at: iso(),
+  error: `manual_check: Gmail Sent has ${unknown.length} email(s) to ${p.realTo} that the sheet does not know (sent by hand?): ${unknown.slice(0, 5).join(' ')}. The sync workflow logs them, then releases or closes this row.` });
+return [{ json: { ...p, guard_ok: false, data: W.data,
+  logs: [logRow('Sender', 'warn', 'manual_send_detected', p.msg.msg_id, p.msg.contact_id, `${p.realTo}: ${unknown.join(' ')}`)],
+  notices: [`⚠️ NOT SENT ${p.msg.msg_id} to ${who} <${p.realTo}>: Gmail Sent has an email to this address that is not in the sheet (sent by hand?).\nThe row is on hold. The sync workflow (hourly at :38) logs your email, then releases or closes the row. Nothing to do.`] } }];
 
 // ---- NODE: After send ----
 // @node send_after

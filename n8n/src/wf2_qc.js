@@ -56,7 +56,7 @@ function detChecks(msg, c) {
   const q = (bodyNoGreet.match(/\?/g) || []).length;
   if (!c) fails.push(`contact_id "${msg.contact_id}" not found in Contacts`);
   if (type === 'cold') {
-    if (wc < 80 || wc > 140) fails.push(`Body has ${wc} words (rule: 80–140, greeting excluded)`);
+    if (wc < 70 || wc > 150) fails.push(`Body has ${wc} words (rule: 70–150, greeting excluded)`);
     if (!subject) fails.push('Subject is empty');
     else if (sw > 8) fails.push(`Subject has ${sw} words (max 8)`);
     if (q === 0) fails.push('No clear ask (no question in body)');
@@ -80,6 +80,36 @@ function detChecks(msg, c) {
   if (SIGNATURE_LEAK.test(body)) fails.push('Body contains signature/contact details: remove them (signature is added automatically)');
   const pd = pastDates(subject + '\n' + body);
   if (pd.length) fails.push(`Date(s) already passed: ${pd.map(x => `"${x}"`).join(', ')}`);
+  // 12 Oct: patterns that make an email read as machine-written (Louai's style rules)
+  if (type === 'cold') {
+    const bodyOnly = bodyNoGreet;
+    if (/;/.test(bodyOnly)) fails.push('Semicolon in body: split into two sentences');
+    if (/—/.test(subject + bodyOnly)) fails.push('Em dash (—) used: rewrite the sentence');
+    if (/[A-Za-z]\s*–\s*[A-Za-z]/.test(bodyOnly)) fails.push('En dash (–) used between words: rewrite the sentence');
+    const paren = (bodyOnly.match(/\(([^)]*)\)/g) || []).filter(x => (x.match(/,/g) || []).length >= 1);
+    if (paren.length) fails.push(`Bracketed tool/tech list: ${paren.map(x => `"${x}"`).join(', ')} (name tools in the sentence or drop them)`);
+    const TELLS = ['my closest project', 'would be new to me', "i'd bring", 'i would bring', 'my portfolio and cv are below', "i'm louai, a final-year master's student",
+      "what particularly interests me", 'i was especially drawn to', 'aligns closely with', 'i would love the opportunity', 'strong fit', 'excited about the possibility',
+      'thrilled to contribute', 'esteemed', 'groundbreaking', 'leverag', 'innovative vision', 'perfectly aligns', 'excellent addition', 'is a dead giveaway'];
+    const t = TELLS.filter(x => low.includes(x));
+    if (t.length) fails.push(`Template/AI-sounding phrase(s): ${t.map(x => `"${x}"`).join(', ')}`);
+  }
+  // colleagues at the same company must not get near-identical emails
+  if (c && type === 'cold') {
+    const co = norm(str(c.company).replace(/\s*\(.*\)\s*/g, ''));
+    const tri = x => { const w = norm(str(x)).replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(Boolean); const s = new Set(); for (let i = 0; i + 2 < w.length; i++) s.add(w.slice(i, i + 3).join(' ')); return s; };
+    const mine = tri(body.split('\n').slice(1).join(' '));
+    for (const o of M.rows) {
+      if (str(o.msg_id) === str(msg.msg_id) || (str(o.type).trim() || 'cold') !== 'cold') continue;
+      const oc = contacts[str(o.contact_id)];
+      if (!oc || str(oc.contact_id) === str(c.contact_id) || norm(str(oc.company).replace(/\s*\(.*\)\s*/g, '')) !== co) continue;
+      const th = tri(str(o.body).replace(/\r/g, '').split('\n').slice(1).join(' '));
+      const inter = [...mine].filter(x => th.has(x)).length, uni = new Set([...mine, ...th]).size || 1;
+      if (inter / uni > 0.25) fails.push(`Too similar to ${o.msg_id} (colleague at ${c.company}, ${Math.round(100 * inter / uni)}% shared phrasing): write it differently`);
+      const subjA = norm(subject), subjB = norm(str(o.subject));
+      if (subjA && subjA === subjB) fails.push(`Same subject as ${o.msg_id} (colleague at ${c.company})`);
+    }
+  }
   // other target companies named in the email (possible copy-paste error)
   if (c) {
     const own = norm(c.company);

@@ -10,5 +10,6 @@ Hard rules:
 - Never mention grades. Never offer to work for free or for a low salary.
 - Never invent facts, numbers, names or dates. Do not mention any date that is earlier than "today".
 - English, plain text, no lists, no links unless already in profile_facts.
+- Sound like one person writing a quick note, not a template: short plain sentences, no semicolons, no em or en dashes, no tools listed in brackets, no marketing words.
 
 Return ONLY: {"body": "..."}

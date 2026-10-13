@@ -69,7 +69,6 @@ $input.all().forEach((it, i) => {
       logs.push(logRow('Finder', 'info', 'email_found', '', c.contact_id, `${d.email} via Hunter (score ${d.score})`));
     } else {
       Object.assign(upd, { email: '', email_status: 'not_found', email_tried: tried.join(';'), email_detail: 'Hunter found nothing' });
-      notices.push(`🔎 NO VERIFIED EMAIL — skipped\n${contactLine(c)}\nTried: ${tried.join(', ') || 'nothing'}\nWhat to do: find the address on LinkedIn / company site, put it in "email", clear "email_status" → it will be verified automatically.`);
       logs.push(logRow('Finder', 'warn', 'email_not_found', '', c.contact_id, `tried: ${tried.join(';')}`));
     }
   } else if (ctx.candidate) {
@@ -78,7 +77,6 @@ $input.all().forEach((it, i) => {
   } else {
     const why = !ctx.canHunter ? `cannot search: missing ${[!str(c.company_domain).trim() && 'company_domain', !str(c.first_name).trim() && 'first_name', !str(c.last_name).trim() && 'last_name'].filter(Boolean).join(', ')}` : 'all sources tried';
     Object.assign(upd, { email: '', email_status: 'not_found', email_detail: why });
-    notices.push(`🔎 NO VERIFIED EMAIL — skipped\n${contactLine(c)}\nReason: ${why}\nTried: ${tried.join(', ') || 'nothing'}\nWhat to do: add the missing data or the address yourself, then clear "email_status".`);
     logs.push(logRow('Finder', 'warn', 'email_not_found', '', c.contact_id, why));
   }
   W.setMany(C, c._row, upd);
@@ -191,7 +189,6 @@ $input.all().forEach((it, i) => {
     logs.push(logRow('Verify', 'warn', 'email_invalid', '', c.contact_id, `pattern guess unconfirmable: ${ctx.email} — ${detail}`));
   } else if (verdict === 'risky') {
     Object.assign(upd, { email_status: 'risky', email_detail: detail });
-    notices.push(`⚠️ RISKY EMAIL (cannot be fully verified) — NOT sent unless you allow it\n${contactLine(c)}\nCheck: ${detail}\nTo allow: tick "allow_risky" in Contacts. Otherwise put a better address in "email" and clear "email_status".`);
     logs.push(logRow('Verify', 'warn', 'email_risky', '', c.contact_id, `${ctx.email} — ${detail}`));
   } else {
     if (!tried.includes(ctx.email)) tried.push(ctx.email);

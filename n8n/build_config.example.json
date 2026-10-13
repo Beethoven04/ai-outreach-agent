@@ -30,6 +30,10 @@
     "httpQueryAuth_reoon": {
       "id": "YOUR_N8N_CREDENTIAL_ID",
       "name": "Outreach · Reoon API key"
+    },
+    "telegramApi_replybot": {
+      "id": "",
+      "name": "Outreach · Reply bot"
     }
   },
   "OWNER": {

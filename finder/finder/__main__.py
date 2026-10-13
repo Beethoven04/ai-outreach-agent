@@ -7,6 +7,10 @@
                                       targets → candidates → verification → results CSV
   scan <pool.csv> <out.csv> [--no-github]
                                       crawl every domain in a pool, summarise published addresses
+  export-candidates <targets.csv> <out.txt>   every candidate address (published, format, ≤3 guesses)
+  ci-verify <emails.txt> [shards] [--keep]    verify on GitHub Actions (outbound port 25) → cache
+  import-reacher <folder>             import Reacher res_*.jsonl results into the cache
+  update <results.csv> [--dry]        write verification outcomes onto existing Contacts rows
   push <results.csv> [--dry]          add verified people to the sheet's Contacts/Companies tabs (dedupe first)
 """
 import sys
@@ -33,11 +37,24 @@ def main(argv):
             print(f"{e:45} {v['verdict']:8} {v.get('mx_provider', ''):10} {v.get('detail', '')}")
     elif cmd == "run":
         from .pipeline import run
-        run(args[0], args[1], do_verify="--no-verify" not in args, use_github="--no-github" not in args)
+        run(args[0], args[1], do_verify="--no-verify" not in args, use_github="--no-github" not in args,
+            all_formats="--all-formats" in args)
     elif cmd == "scan":
         from .pipeline import scan
         res = scan(args[0], args[1], use_github="--no-github" not in args)
         print(f"{len(res)} domains scanned, {sum(1 for r in res if r.get('n_personal'))} publish personal addresses → {args[1]}")
+    elif cmd == "ci-verify":
+        from .ci import run as ci_run
+        ci_run(args[0], shards=int(args[1]) if len(args) > 1 and args[1].isdigit() else 4, keep="--keep" in args)
+    elif cmd == "import-reacher":
+        from .ci import import_results
+        print(import_results(args[0]))
+    elif cmd == "export-candidates":
+        from .pipeline import export_candidates
+        print(len(export_candidates(args[0], args[1])), "addresses →", args[1])
+    elif cmd == "update":
+        from .update import update
+        update(args[0], dry="--dry" in args)
     elif cmd == "push":
         from .push import push
         push(args[0], dry="--dry" in args)

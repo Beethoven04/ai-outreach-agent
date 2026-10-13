@@ -17,6 +17,7 @@ RULES TO CHECK
 7. Never mention grades, GPA, marks, rankings or transcripts.
 8. Never offer to work for free, unpaid, for a low or small salary, or "for any salary".
 9. No placeholders or leftovers ([Name], {{company}}, TODO, "Follow up on:", template notes).
+10. Natural voice (cold emails): it must read like one specific person wrote it to one specific person. Failures: marketing or cover-letter phrasing, stacked abstractions, polished three-part lists, tool lists in brackets, semicolons or dashes used as rhetorical pauses, repeating the company name more than twice, restating the CV, praising the company. Short, concrete, plain sentences pass.
 
 HOW TO ANSWER
 - Quote exactly. Every "quote" must be copied verbatim from the subject or body. Never invent a quote.

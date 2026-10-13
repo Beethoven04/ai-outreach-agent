@@ -32,7 +32,9 @@ for f in $STAGED; do
   esac
 done
 # secrets and personal identifiers inside staged files
-PATTERNS='AIza[0-9A-Za-z_-]{30,}|gsk_[0-9A-Za-z]{20,}|ghp_[0-9A-Za-z]{30,}|gho_[0-9A-Za-z]{30,}|xox[bp]-|-----BEGIN (RSA |EC )?PRIVATE KEY|"private_key"|1wPqnvmD1hZ5qINQXnxQRgtmIhVA7FK1X|683772247|eddiazlouai|eddiaz04louai|\+212 ?7'
+PATTERNS='AIza[0-9A-Za-z_-]{30,}|gsk_[0-9A-Za-z]{20,}|ghp_[0-9A-Za-z]{30,}|gho_[0-9A-Za-z]{30,}|xox[bp]-|-----BEGIN (RSA |EC )?PRIVATE KEY|"private_key"'
+# personal ids (sheet id, chat id, addresses, phone) live in a git-ignored file, one regex per line
+[ -f private/publish_patterns.txt ] && PATTERNS="$PATTERNS|$(grep -v '^#' private/publish_patterns.txt | paste -sd'|' -)"
 if git diff --cached -U0 | grep -E "^\+" | grep -Eq "$PATTERNS"; then
   red "BLOCKED: a staged change contains a secret / private ID:"
   git diff --cached -U0 | grep -E "^\+" | grep -En "$PATTERNS" | head -5

@@ -14,9 +14,8 @@ An automatic message that says to contact another person or address instead (mai
 Rules:
 - Base everything only on the reply text. Never invent names, dates or emails.
 - If a person or email address is referred to, copy it exactly into "referral_to", and split it into "referral_name" (full name as written), "referral_role" (as written, or "") and "referral_email" (exact address, or "" if none is written).
-- "thank_you_draft": ONLY when category is "referral" AND is_auto_reply is false; otherwise "". A short reply from Louai in the same thread: start with "Hi <first name of the person who replied>," on its own line, thank them for pointing him to the referred person (use the name exactly as written), say he will contact them, nothing else. 20 to 50 words including the greeting. No question, no signature, no new facts, no flattery, no "reaching out", no apologies.
 - "summary": one sentence, max 30 words.
 - "next_step": one short suggestion for Louai (max 25 words). For "do_not_contact" always: "Do not reply or contact again."
 
 Return ONLY this JSON:
-{"category": "...", "summary": "...", "next_step": "...", "referral_to": "", "referral_name": "", "referral_role": "", "referral_email": "", "thank_you_draft": "", "language": "en", "confidence": 0.0}
+{"category": "...", "summary": "...", "next_step": "...", "referral_to": "", "referral_name": "", "referral_role": "", "referral_email": "", "language": "en", "confidence": 0.0}

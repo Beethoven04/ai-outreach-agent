@@ -42,6 +42,22 @@ syntax → **MX** (DNS) → **Reacher** SMTP mailbox check (self-hosted, `server
 
 Every check is cached (`data/finder_cache/`) so no address is probed twice.
 
+## What worked in production (Oct 2026)
+Three research rounds, 287 people at 194 organisations, **187 mailbox-confirmed addresses at 128 organisations,
+0 bounces on 114 cold emails sent**.
+
+| Step | What we did | Why it matters |
+|---|---|---|
+| Catch-all triage first | one random address (`xxxxxq1234x@domain`) per domain before researching anyone there | a domain that accepts everything can never give a confirmed address, so no time is spent on it and nothing unconfirmed is sent |
+| People from the company itself | team / about pages, career "people" pages (Teamtailor), English job ads that name the hiring manager ([JobTech](https://jobtechdev.se) open API for Sweden, public job ads in Denmark) | current, correct names and roles, often with a published address |
+| Hunter (free tier) | Discover for new regional AI companies; domain search filtered to `department=it`, `seniority=senior,executive` | finds team leads at large companies, not only founders |
+| Format inference | other real staff addresses on the site → the company format | 93 of the confirmed addresses came from a format the mail server then confirmed |
+| Reacher, self-hosted | SMTP mailbox check, one address at a time, no mail sent | free and repeatable, results cached |
+| Reoon for Microsoft 365 | Microsoft throttles the 2nd recipient in one SMTP session (`452 4.5.3 Too many recipients`), so a plain check can say "invalid" for a real mailbox | one address the SMTP check called "invalid" belonged to a person who had already replied to us; Reoon gets these right |
+
+Where to stop: the historical JobTech archive masks names and emails, and generic web search for leads at large
+companies gave little. Neither is worth the time.
+
 ## Ethics / limits
 Only public sources: company websites, press, public GitHub metadata. No breached or scraped-leak databases, no LinkedIn scraping.
 SMTP checks never send an email. They stop at `RCPT TO`, one at a time.

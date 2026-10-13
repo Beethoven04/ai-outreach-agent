@@ -43,3 +43,7 @@ __pycache__/
 
 # Generated mock workflows embed owner identifiers (rebuild: MOCK_BASE=... python3 build.py)
 n8n/tests/workflows_mock/
+
+# GitHub-Actions mailbox verifier: personal use only, not published (GitHub ToS gray area)
+server/ci-verifier/
+finder/finder/ci.py

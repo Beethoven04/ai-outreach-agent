@@ -1,3 +1,30 @@
+// ---- NODE: Inbox search query ----
+// @node rw_search
+// Two cheap Gmail searches (always 2 items, so the chain continues):
+// 1) recent mail not from us → only watched threads with new activity are fetched (13 Oct: fetching ~100 threads
+//    every run hit Gmail's 'Total Query Cost' quota and half the fetches failed);
+// 2) mail from every address/domain we emailed → replies outside our threads (new thread, manual sends, Dreamdata case).
+const T = tablesFrom($('Read Sheet').first().json);
+const M = T.Messages, C = T.Contacts, cfg = configOf(T.Config);
+const n = now();
+const FREEMAIL = ['gmail.com', 'googlemail.com', 'outlook.com', 'hotmail.com', 'live.com', 'yahoo.com', 'icloud.com', 'me.com', 'proton.me', 'protonmail.com', 'gmx.com', 'aol.com'];
+const contacts = Object.fromEntries(C.rows.map(c => [str(c.contact_id), c]));
+const terms = new Set();
+for (const m of M.rows) {
+  const sent = parseDT(m.sent_at);
+  if (!sent || n.diff(sent, 'days').days > cfg.num('REPLY_WATCH_DAYS', 60)) continue;
+  const email = norm(str(m.to_email) || str((contacts[str(m.contact_id)] || {}).email));
+  if (!EMAIL_RE.test(email)) continue;
+  const dom = email.split('@')[1];
+  terms.add(FREEMAIL.includes(dom) ? email : dom);
+}
+const q = terms.size && cfg.bool('INBOX_SEARCH', true)
+  ? `in:inbox newer_than:${cfg.num('INBOX_SEARCH_DAYS', 3)}d -from:me from:(${[...terms].sort().join(' OR ')})` : '';
+// look back at least to the last successful run (+1 day), so a stopped server misses nothing
+const last = parseDT(cfg.raw.LAST_RUN_REPLIES);
+const back = Math.min(30, Math.max(cfg.num('INBOX_SEARCH_DAYS', 3), last ? Math.ceil(n.diff(last, 'days').days) + 1 : 30));
+return [{ json: { kind: 'activity', q: `newer_than:${back}d -from:me -in:sent -in:drafts -in:chats` } }, { json: { kind: 'domains', q, terms: terms.size } }];
+
 // ---- NODE: Threads to check ----
 // @node rw_threads
 const T = tablesFrom($('Read Sheet').first().json);
@@ -12,7 +39,23 @@ for (const m of M.rows) {
   if (!tid || !sent || n.diff(sent, 'days').days > days) continue;
   (threads[tid] = threads[tid] || []).push(m);
 }
-return Object.keys(threads).map(tid => ({ json: { thread_id: tid, msg_ids: threads[tid].map(m => str(m.msg_id)) } }));
+// search 1: only threads with new mail; on any doubt (error, more than one page) fetch every watched thread as before
+const act = ($input.all()[0] || {}).json || {};
+const full = !!(act.error || act.nextPageToken || !Array.isArray(act.messages) && act.resultSizeEstimate !== 0);
+const active = new Set((act.messages || []).map(x => x.threadId));
+const out = Object.keys(threads).filter(tid => full || active.has(tid)).map(tid => ({ json: { thread_id: tid, msg_ids: threads[tid].map(m => str(m.msg_id)) } }));
+// search 2: hits in threads we do not watch → fetched too, matched to a contact by sender address/domain later
+const sr = ($input.all()[1] || {}).json || {};
+if ($('Inbox search query').all()[1].json.q && !sr.error) {
+  const seen = new Set(T.Replies.rows.map(r => str(r.reply_id)));
+  const oot = {};
+  for (const x of (sr.messages || [])) {
+    if (threads[x.threadId] || seen.has(x.id)) continue;
+    (oot[x.threadId] = oot[x.threadId] || []).push(x.id);
+  }
+  for (const tid of Object.keys(oot)) out.push({ json: { thread_id: tid, msg_ids: [], oot_ids: oot[tid] } });
+}
+return out;
 
 // ---- NODE: Detect new replies ----
 // @node rw_detect
@@ -23,22 +66,12 @@ const seen = new Set(R.rows.map(r => str(r.reply_id)));
 const me = [cfg.str('FROM_EMAIL', '__OWNER_FROM__'), ...__OWNER_OTHER_EMAILS__].map(norm);
 const byId = Object.fromEntries(M.rows.map(m => [str(m.msg_id), m]));
 const contacts = Object.fromEntries(C.rows.map(c => [str(c.contact_id), c]));
-const b64 = s => Buffer.from(String(s || '').replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
-function partText(p, mime) {
-  if (!p) return '';
-  if (p.mimeType === mime && p.body && p.body.data) return b64(p.body.data);
-  for (const q of (p.parts || [])) { const t = partText(q, mime); if (t) return t; }
-  return '';
-}
-function stripQuoted(t) {
-  const lines = t.replace(/\r/g, '').split('\n');
-  const out = [];
-  for (const l of lines) {
-    if (/^\s*>/.test(l)) break;
-    if (/^(on .+wrote:|den .+skrev:|d\. .+skrev|le .+a écrit|am .+schrieb|-{2,}\s*original message|from:\s|fra:\s|från:\s|sent from my)/i.test(l.trim())) break;
-    out.push(l);
-  }
-  return out.join('\n').trim();
+// out-of-thread mail: match the sender to a contact we emailed (exact address first, then same domain), newest sent message wins
+const sentTo = M.rows.filter(m => parseDT(m.sent_at)).map(m => ({ m, c: contacts[str(m.contact_id)] || {}, email: norm(str(m.to_email) || str((contacts[str(m.contact_id)] || {}).email)) }))
+  .sort((a, b) => parseDT(b.m.sent_at) - parseDT(a.m.sent_at));
+function matchSender(fromEmail) {
+  const dom = fromEmail.split('@')[1] || '';
+  return sentTo.find(x => x.email === fromEmail) || sentTo.find(x => x.email.split('@')[1] === dom && !/^(gmail|googlemail|outlook|hotmail|live|yahoo|icloud|me|gmx|aol)\.com$|^proton(mail)?\.(me|com)$/.test(dom)) || null;
 }
 const out = [];
 $input.all().forEach((it, i) => {
@@ -46,18 +79,19 @@ $input.all().forEach((it, i) => {
   const th = it.json;
   if (th.error) { out.push({ json: { kind: 'thread_error', thread_id: ctx.thread_id, error: JSON.stringify(th.error).slice(0, 300), needs_llm: false } }); return; }
   const ours = ctx.msg_ids.map(id => byId[id]).filter(Boolean).sort((a, b) => parseDT(a.sent_at) - parseDT(b.sent_at));
-  const last = ours[ours.length - 1];
-  const c = contacts[str(last.contact_id)] || {};
+  const oot = new Set(ctx.oot_ids || []);
   for (const gm of (th.messages || [])) {
     if (seen.has(gm.id)) continue;
+    if (oot.size && !oot.has(gm.id)) continue;
     if ((gm.labelIds || []).includes('SENT') || (gm.labelIds || []).includes('DRAFT')) continue;
     const H = {}; for (const h of ((gm.payload && gm.payload.headers) || [])) H[h.name.toLowerCase()] = h.value;
     const from = str(H.from);
     const fromEmail = norm((from.match(/<([^>]+)>/) || [, from])[1]);
     if (me.includes(fromEmail)) continue;
-    let text = partText(gm.payload, 'text/plain');
-    if (!text) text = partText(gm.payload, 'text/html').replace(/<style[\s\S]*?<\/style>/gi, '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ');
-    const clean = stripQuoted(text).slice(0, 2500) || str(gm.snippet);
+    let last = ours[ours.length - 1], c = last ? contacts[str(last.contact_id)] || {} : {};
+    if (oot.size) { const hit = matchSender(fromEmail); if (!hit) continue; last = hit.m; c = hit.c; }
+    if (!last) continue;
+    const clean = stripQuoted(gmailText(gm.payload)).slice(0, 2500) || str(gm.snippet);
     const subj = str(H.subject);
     let kind = 'human';
     if (/mailer-daemon|postmaster/i.test(fromEmail) || /multipart\/report/i.test(str(H['content-type'])) || /(delivery status notification|undeliver|delivery has failed|mail delivery failed|returned mail|address not found)/i.test(subj)) kind = 'bounce';
@@ -66,7 +100,8 @@ $input.all().forEach((it, i) => {
     const base = { temperature: 0, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: REPLY_SYSTEM }, { role: 'user', content: JSON.stringify(user) }] };
     out.push({ json: {
       kind, needs_llm: kind === 'human' || kind === 'auto_reply', // auto-replies can carry a referral ("mailbox closed, contact X")
-      reply_id: gm.id, thread_id: ctx.thread_id,
+      reply_id: gm.id, thread_id: ctx.thread_id, out_of_thread: oot.size > 0,
+      rfc_message_id: str(H['message-id']), references: str(H.references),
       received_at: DateTime.fromMillis(Number(gm.internalDate || Date.now())).setZone(TZ).toISO({ suppressMilliseconds: true }),
       from, from_email: fromEmail, subject: subj, text: clean, msg: last, contact: c,
       req_primary: { model: cfg.str('LLM_PRIMARY_MODEL', 'gemini-3.5-flash'), ...base },
@@ -99,7 +134,6 @@ const knownEmails = new Set(C.rows.map(x => norm(x.email)).filter(Boolean));
 let nextC = Math.max(0, ...C.rows.map(x => Number((str(x.contact_id).match(/^C(\d+)$/) || [, 0])[1])).filter(n => n < 900)) + 1;
 const companyOf = c => norm(str(c.company).replace(/\s*\(.*\)\s*/g, ''));
 const CATS = ['interested', 'question', 'referral', 'not_now', 'refusal', 'do_not_contact', 'auto_reply', 'other'];
-const ICON = { interested: '🟢', question: '🟡', referral: '🔀', not_now: '🟠', refusal: '🔴', do_not_contact: '⛔', auto_reply: '🤖', bounce: '📛', other: '⚪', unclassified: '⚪' };
 $input.all().forEach((it, i) => {
   let ctx, llm = null, err = '';
   if (VIA === 'none' || VIA === 'primary') { ctx = it.json; llm = ctx.llm || null; err = ctx.llm_error || ''; }
@@ -158,32 +192,23 @@ $input.all().forEach((it, i) => {
       if (rEmail) knownEmails.add(rEmail);
       actions.push(`referral added to Contacts as ${id}`);
     }
-    // a person (not a robot) gave the referral: draft a short thank-you in the same thread, for QC + approval
-    const ty = str(llm.thank_you_draft).trim();
-    if (ctx.kind === 'human' && ty && m) {
-      const rid = `${str(m.msg_id)}-R1`;
-      if (!M.rows.some(x => str(x.msg_id) === rid)) {
-        appendMessages.push(rowArray(M, {
-          msg_id: rid, contact_id: c.contact_id, company: c.company, first_name: c.first_name, type: 'reply', parent_msg_id: m.msg_id,
-          subject: 'Re: ' + str(m.subject).replace(/^re:\s*/i, ''), body: ty, status: 'draft', approved: false, to_email: ctx.from_email,
-          gmail_thread_id: m.gmail_thread_id, updated_at: iso(), qc_reasons: 'thank-you reply drafted from the referral; waiting for QC',
-        }));
-        actions.push(`thank-you reply drafted as ${rid}`);
-      }
-    }
+    // thank-you / intro drafts are written by workflow 7 (Reply assistant) from the Replies row below
   }
+  if (ctx.out_of_thread) actions.push('found by inbox search (outside our thread)');
+  const rEmailOut = llm && category === 'referral' ? norm((str(llm.referral_email).match(/[^\s<>()"',;:]+@[^\s<>()"',;:]+\.[a-z]{2,}/i) || [''])[0]) : '';
   appendReplies.push(rowArray(R, {
     reply_id: ctx.reply_id, received_at: ctx.received_at, msg_id: m ? m.msg_id : '', contact_id: c.contact_id, full_name: c.full_name, company: c.company,
     from_email: ctx.from_email, kind: ctx.kind, category, summary: llm ? str(llm.summary) : (ctx.kind === 'human' ? `LLM failed: ${err.slice(0, 150)}` : ''),
     next_step: llm ? str(llm.next_step) + (llm.referral_to ? ` | referral: ${llm.referral_to}` : '') : '', snippet: ctx.text.slice(0, 500), thread_link: link, action_taken: actions.join('; '),
+    // used by the Reply assistant (wf7) to answer this exact message in its thread
+    thread_id: ctx.thread_id, from_name: str(ctx.from).replace(/<[^>]*>/, '').replace(/"/g, '').trim(), rfc_message_id: ctx.rfc_message_id || '', references: ctx.references || '', subject: ctx.subject, text: ctx.text.slice(0, 2500),
+    referral_name: llm && category === 'referral' ? str(llm.referral_name).trim() : '', referral_email: rEmailOut,
   }));
   logs.push(logRow('Replies', category === 'bounce' ? 'warn' : 'info', `reply_${category}`, m ? m.msg_id : '', c.contact_id, `${ctx.from} | ${ctx.subject} | ${actions.join('; ')}`));
-  notices.push(`${ICON[category] || '📩'} REPLY — ${category.toUpperCase()}\n` +
-    `From: ${ctx.from}\nContact: ${c.full_name || c.first_name || '?'} (${c.role || 'role ?'}) @ ${c.company || '?'}\n` +
-    `Subject: ${ctx.subject}\nReceived: ${ctx.received_at}\n` +
-    (llm ? `Summary: ${llm.summary}\nSuggested next step: ${llm.next_step}${llm.referral_to ? `\nReferral to: ${llm.referral_to}` : ''}\n` : (ctx.kind === 'human' ? `⚠️ Could not classify automatically (${err.slice(0, 120)}). Read it yourself.\n` : '')) +
-    `\n"${ctx.text.slice(0, 700)}"\n\nOpen thread: ${link}\nActions: ${actions.join('; ') || 'none (auto-reply: follow-ups continue)'}\n` +
-    (category === 'do_not_contact' ? 'This person is now do_not_contact: they will never be emailed again.' : category === 'bounce' ? 'Address is dead. Find another address, then create a new contact/message row if you want to retry.' : category === 'referral' ? 'New contact added: write a cold draft for them. Any thank-you reply needs your ✅ before it is sent.' : 'You decide whether to reply: nothing is sent automatically.'));
+  // Telegram (bot 1) gets only problems: a bounce means an address is dead. Human replies get a draft card in the reply bot (wf7),
+  // and every reply is listed in the daily report.
+  if (category === 'bounce') notices.push(`📛 BOUNCE: ${m ? m.msg_id : '?'} to ${c.full_name || c.first_name || '?'} (${c.company || '?'}) <${str(m && m.to_email) || c.email || '?'}> did not arrive.\n` +
+    `"${ctx.text.slice(0, 300)}"\n${actions.join('; ')}\n✔ Fix: find another address for this person and add a new contact row if you want to retry.\nThread: ${link}`);
 });
 heartbeat(W, T, 'LAST_RUN_REPLIES');
 return [{ json: { data: W.data, logs, notices, appendReplies, appendContacts, appendMessages } }];
