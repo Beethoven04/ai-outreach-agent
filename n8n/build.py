@@ -20,6 +20,9 @@ COMMON = open(os.path.join(ROOT, 'src/common.js')).read()
 PROMPTS = {k: open(os.path.join(ROOT, f'prompts/{f}')).read().strip() for k, f in
            [('__QC_SYSTEM__', 'qc_system.md'), ('__REPLY_SYSTEM__', 'reply_system.md'), ('__FOLLOWUP_SYSTEM__', 'followup_system.md'),
             ('__REPLY_DRAFT_SYSTEM__', 'reply_draft_system.md'), ('__REPLY_EDIT_SYSTEM__', 'reply_edit_system.md')]}
+# Groq rejects response_format json_object (400) unless the messages contain the word "json" (14 Oct: every follow-up fallback failed)
+for _k, _v in PROMPTS.items():
+    assert 'json' in _v.lower(), f'{_k}: prompt must contain the word "json" (Groq json_object mode)'
 SHEETS = 'https://sheets.googleapis.com/v4/spreadsheets/' + CFG['SHEET_ID']
 GMAIL = 'https://gmail.googleapis.com/gmail/v1/users/me'
 GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
@@ -365,7 +368,7 @@ def wf4():
 
 def wf5():
     wf = WF('Outreach 5 · Follow-up drafts')
-    s = wf.add(schedule('Mon-Fri 07:15', '15 7 * * 1-5'))
+    s = wf.add(schedule('Mon-Fri hourly 07:15-17:15', '15 7-17 * * 1-5'))  # reruns are safe: contacts with a pending follow-up are skipped
     r = wf.add(read_sheet('Read Sheet', ['Config', 'Contacts', 'Messages', 'Profile']), after=s)
     sel = wf.add(code('Due follow-ups', 'fu_select'), after=r)
     p = wf.add(llm('LLM primary (Gemini)', 'gemini', 'req_primary', 7000), after=sel)

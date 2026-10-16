@@ -8,7 +8,7 @@ src/common.js          helpers injected into every Code node (sheet tables, Writ
 src/wfN_*.js           one file per workflow, one section per Code node (// ---- NODE: … / // @node key)
 prompts/*.md           LLM system prompts (QC rubric, reply classifier, follow-up writer, reply drafter, reply editor)
 build.py               wires nodes + connections, fills sheet/credential ids from build_config.json → workflows/*.json
-tests/e2e.test.js      170 end-to-end checks: every Code node against an anonymised sheet, APIs mocked
+tests/e2e.test.js      172 end-to-end checks: every Code node against an anonymised sheet, APIs mocked
 tests/mock_server.js   mock of Sheets, Gmail, Gemini/Groq, Hunter, Reoon, DoH and Telegram for a real n8n container
 ```
 
@@ -21,7 +21,7 @@ tests/mock_server.js   mock of Sheets, Gmail, Gemini/Groq, Hunter, Reoon, DoH an
 | 2 | Quality check (LLM) | every 15 min | code rules + LLM rubric against Profile and Companies → `ready` / `needs_fix` with quoted reasons |
 | 3 | Sender | every 5 min, Mon–Fri 07–18 | one approved email per run; all guards; Gmail "Sent" check right before sending |
 | 4 | Reply & bounce watcher | :02 :17 :32 :47 | two Gmail searches, then only threads with new mail; classifies, handles referrals and bounces |
-| 5 | Follow-up drafts | Mon–Fri 07:15 | fu1/fu2 after 4 days, ≤ 50 words, same thread → back to QC + approval |
+| 5 | Follow-up drafts | Mon–Fri hourly 07:15–17:15 | fu1/fu2 after 4 days, ≤ 50 words, same thread → back to QC + approval |
 | 6 | Daily report | 18:00 | three Telegram messages: sent table, replies, day summary |
 | 7 | Reply assistant (bot) | every 5 min + Telegram webhook | drafts an answer per reply; second bot with ✅ / ✏️ / 🔁 / ❌ |
 | 8 | Gmail ↔ sheet sync | hourly at :38 | logs emails written by hand, closes what they replace, repairs stuck rows |

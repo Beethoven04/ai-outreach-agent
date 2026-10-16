@@ -1,7 +1,7 @@
 # 3. Test plan
 
 ## Automated (run before every change)
-- **170 end-to-end checks** (`cd n8n && python3 build.py && node tests/e2e.test.js`) run every Code node of the built
+- **172 end-to-end checks** (`cd n8n && python3 build.py && node tests/e2e.test.js`) run every Code node of the built
   workflows against an anonymised sheet (`tests/sheet_fixture.demo.json`) with mocked APIs: finder and verifier, QC
   rules and LLM fallback, approval reset after edits, every Sender gate (weekend, window, gap, cap, pause,
   same-company, risky, duplicates, the Gmail "Sent" check), dry-run / test / live, Gmail errors, replies, auto-replies,

@@ -9,7 +9,7 @@ personal facts). This is their shape.
 |---|---|---|
 | Contact researcher | Find the right person per organisation and a published or verified address | Contacts, Companies |
 | Email writer | Cold emails, referral emails, follow-ups, thank-yous in an approved structure; every claim must exist in the Profile tab | Messages (status `draft`) |
-| Inbox triage | Classify replies (interested, referral, refusal, auto-reply, bounce), log referrals as new contacts | Replies, Contacts |
+| Inbox triage | Classify replies (interested, question, referral, auto-reply, bounce, …), log referrals as new contacts | Replies, Contacts |
 | Pipeline operator | Config switches, approvals, manual sends when the server is down, sheet hygiene | Config, Messages, Log |
 | n8n engineer | Change workflows only through `src/` + `prompts/` → `build.py` → tests | `n8n/` |
 

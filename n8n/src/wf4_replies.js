@@ -3,7 +3,7 @@
 // Two cheap Gmail searches (always 2 items, so the chain continues):
 // 1) recent mail not from us → only watched threads with new activity are fetched (13 Oct: fetching ~100 threads
 //    every run hit Gmail's 'Total Query Cost' quota and half the fetches failed);
-// 2) mail from every address/domain we emailed → replies outside our threads (new thread, manual sends, Dreamdata case).
+// 2) mail from every address/domain we emailed → replies outside our threads (new thread, manual sends, an auto-reply that starts its own thread).
 const T = tablesFrom($('Read Sheet').first().json);
 const M = T.Messages, C = T.Contacts, cfg = configOf(T.Config);
 const n = now();

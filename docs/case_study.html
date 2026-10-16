@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Outreach Agent</title>
+<style>
+  :root { --ink: #1b2130; --muted: #5d6677; --line: #e3e7ee; --accent: #3b5bdb; --tint: #eef2ff; --ok: #157347; --okt: #ecf8f1; }
+  @page { size: A4; margin: 10mm 12mm; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; font-size: 8.9pt; line-height: 1.38; color: var(--ink); margin: 0; background: #fff; }
+  h1 { font-size: 19pt; margin: 0; letter-spacing: -0.4px; }
+  h2 { font-size: 10pt; text-transform: uppercase; letter-spacing: .6px; color: var(--accent); margin: 3mm 0 1.3mm; }
+  p { margin: 0 0 1.4mm; }
+  ul { margin: 0; padding-left: 4mm; }
+  li { margin: 0 0 .7mm; }
+  b { color: #111; }
+  .head { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2.5px solid var(--accent); padding-bottom: 2mm; }
+  .head .sub { color: var(--muted); font-size: 9.6pt; margin-top: .8mm; }
+  .head .who { text-align: right; font-size: 8.4pt; color: var(--muted); line-height: 1.5; white-space: nowrap; padding-left: 5mm; }
+  .head .who b { font-size: 9.6pt; }
+  .lead { font-size: 9.8pt; margin: 2.6mm 0 0; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; }
+  .flow { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1.4mm; margin: 1.6mm 0 1mm; }
+  .step { border: 1px solid var(--line); border-top: 3px solid var(--accent); border-radius: 1.5mm; padding: 1.4mm 1.6mm; background: #fafbfd; }
+  .step.h { border-top-color: var(--ok); background: var(--okt); }
+  .step b { display: block; font-size: 8.6pt; margin-bottom: .5mm; }
+  .step span { font-size: 7.6pt; color: var(--muted); line-height: 1.3; display: block; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.6mm; margin: 1.4mm 0 1.2mm; }
+  .stat { background: var(--tint); border-radius: 1.5mm; padding: 1.6mm 2mm; }
+  .stat .n { font-size: 15pt; font-weight: 700; color: var(--accent); line-height: 1.1; }
+  .stat .l { font-size: 7.5pt; color: var(--muted); line-height: 1.3; }
+  table { width: 100%; border-collapse: collapse; font-size: 8.2pt; }
+  td { padding: .9mm 1.4mm; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td:first-child { font-weight: 600; width: 27%; color: #333b4a; }
+  .box { border-left: 3px solid var(--ok); background: var(--okt); padding: 1.8mm 2.6mm; border-radius: 0 1.5mm 1.5mm 0; margin: 2.4mm 0 0; }
+  .tags { margin-top: 1mm; }
+  .tags span { display: inline-block; border: 1px solid var(--line); border-radius: 1mm; padding: .2mm 1.4mm; margin: 0 .8mm .8mm 0; font-size: 7.6pt; color: #3a4354; background: #fafbfd; }
+  .foot { margin-top: 2.6mm; padding-top: 1.4mm; border-top: 1px solid var(--line); font-size: 7.6pt; color: var(--muted); display: flex; justify-content: space-between; }
+  @media screen { body { max-width: 210mm; margin: 0 auto; padding: 16px; } }
+  @media screen and (max-width: 700px) { .cols, .flow, .stats { grid-template-columns: 1fr 1fr; } .head { display: block; } .head .who { text-align: left; margin-top: 2mm; } }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <div>
+    <h1>AI Outreach Agent</h1>
+    <div class="sub">An agent that runs a targeted job search end to end, with a human approving everything it sends</div>
+  </div>
+  <div class="who"><b>Louai Eddiaz</b><br>MSc Data Science &amp; AI<br>beeet.dev<br>github.com/Beethoven04/ai-outreach-agent</div>
+</div>
+
+<p class="lead"><b>The problem.</b> I wanted a master's thesis internship at AI companies in Skåne and Copenhagen. Doing it
+well by hand means finding the right companies, the right person in each team, a real email address, a personal email
+for each one, follow-ups and answers, without ever sending a wrong fact or a duplicate. I built a system that does the
+work and keeps me in control of every decision that matters. <b>It has run in production since October 2026.</b></p>
+
+<h2>How it works</h2>
+<div class="flow">
+  <div class="step"><b>1 · Research</b><span>Job-ad APIs, startup and incubator lists, company team pages</span></div>
+  <div class="step"><b>2 · Verify</b><span>Infer the address format, confirm the mailbox with the mail server</span></div>
+  <div class="step"><b>3 · Write + check</b><span>LLM drafts; code rules + LLM rubric check every claim</span></div>
+  <div class="step h"><b>4 · I approve</b><span>One tick in the sheet. Nothing leaves without it</span></div>
+  <div class="step"><b>5 · Send</b><span>Safe schedule, caps, gaps, duplicate checks in Gmail</span></div>
+  <div class="step"><b>6 · Replies</b><span>Classified, referrals followed, answers drafted on Telegram</span></div>
+</div>
+<p>Nine n8n workflows and a Python research tool share one Google Sheet as the database, readable by a person and by
+code. A daily Telegram report shows what was sent, what came back and any problem with its fix.</p>
+
+<div class="cols">
+<div>
+  <h2>Methods</h2>
+  <table>
+    <tr><td>Find companies</td><td>JobTech open job-ad API (Sweden), The Hub API, incubator and science-park portfolios, Hunter Discover</td></tr>
+    <tr><td>Find the person</td><td>Team and career pages, job ads that name the hiring manager. Founders at startups, team leads at large firms</td></tr>
+    <tr><td>Find the address</td><td>Published &gt; public GitHub commit address &gt; company format inferred from real staff addresses</td></tr>
+    <tr><td>Confirm it</td><td>DNS MX → catch-all test (one random address per domain) → self-hosted Reacher SMTP check → Reoon for Microsoft 365</td></tr>
+    <tr><td>Write it</td><td>Gemini Flash, Groq fallback. Each email names one concrete reason that links the company to my work</td></tr>
+    <tr><td>Guard it</td><td>Code checks what can be checked (length, dates, names, banned phrases). The LLM must quote the text for every finding and match each claim to my profile facts</td></tr>
+  </table>
+</div>
+<div>
+  <h2>Accuracy</h2>
+  <div class="stats">
+    <div class="stat"><div class="n">&lt;0.5%</div><div class="l">bounce rate on cold emails</div></div>
+    <div class="stat"><div class="n">68%</div><div class="l">of people found got a mailbox-confirmed address</div></div>
+    <div class="stat"><div class="n">0</div><div class="l">guessed addresses sent automatically</div></div>
+    <div class="stat"><div class="n">172</div><div class="l">automated end-to-end checks</div></div>
+  </div>
+  <p>The other 32% were held back (catch-all domain or no confirmation), not guessed. About half of the confirmed
+  addresses came from an inferred company format, 39% were published. A second verifier settled 19%, mostly Microsoft 365
+  domains where a plain SMTP check gives a false "invalid".</p>
+
+  <h2>Engineering</h2>
+  <ul>
+    <li><b>Workflows as code:</b> every workflow is generated from JavaScript and Markdown prompts, diffable and tested before deploy.</li>
+    <li><b>Tested like software:</b> every code step runs against an anonymised sheet with all APIs mocked, then in a real n8n container.</li>
+    <li><b>Safe by default:</b> content hash after QC, append-only log, Gmail "Sent" check before each send, auto-pause on quota errors.</li>
+  </ul>
+</div>
+</div>
+
+<h2>What production taught me</h2>
+<div class="cols">
+  <ul>
+    <li><b>Verifiers can be wrong.</b> Microsoft 365 throttles the second recipient in one SMTP session, so real mailboxes looked invalid. Fix: a second verifier for those domains.</li>
+    <li><b>Quotas hit per minute, not per day.</b> A burst of Gmail reads beside a send tripped the limit. Fix: each Gmail workflow got its own minute of the hour.</li>
+  </ul>
+  <ul>
+    <li><b>People write by hand too.</b> An hourly Gmail-to-sheet sync logs my own emails, so the agent never sends on top of them.</li>
+    <li><b>Natural voice matters.</b> The QC now flags phrases that read as machine-written, and the style rules were rewritten around plain, short sentences.</li>
+  </ul>
+</div>
+
+<div class="box"><b>Did you receive an email from me?</b> Then you have seen this system at work: your company and your
+name came from the research step, your mail server confirmed the address, an LLM drafted the email, the checks matched
+every claim to my real profile, and I read and approved it before it was sent.</div>
+
+<div class="tags">
+  <span>n8n</span><span>Python</span><span>JavaScript</span><span>Gemini</span><span>Groq</span><span>Google Sheets API</span><span>Gmail API</span>
+  <span>Telegram Bot API</span><span>Docker</span><span>Reacher</span><span>Claude Code (role-based agent workflow)</span>
+</div>
+
+<div class="foot"><span>Public sources only. No scraped leak databases, no LinkedIn scraping. Mailbox checks never send mail.</span><span>October 2026</span></div>
+
+</body>
+</html>

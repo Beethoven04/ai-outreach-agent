@@ -12,4 +12,4 @@ Hard rules:
 - English, plain text, no lists, no links unless already in profile_facts.
 - Sound like one person writing a quick note, not a template: short plain sentences, no semicolons, no em or en dashes, no tools listed in brackets, no marketing words.
 
-Return ONLY: {"body": "..."}
+Return ONLY this json object: {"body": "..."}

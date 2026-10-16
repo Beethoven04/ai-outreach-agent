@@ -486,6 +486,12 @@ const threadsToCheck = async (read, hits = [], activity = { error: { message: 'x
   read = [{ json: sheet.batchGet(['Config', 'Contacts', 'Messages', 'Profile']) }];
   const due2 = await run('5', 'Due follow-ups', read, { nodes: { 'Read Sheet': read } });
   ok(!due2.some(x => fu.some(f => f.contact_id === x.json.contact.contact_id)), `no duplicate follow-up drafts (next run only picks the ${due2.length} remaining)`);
+  // 14 Oct: Gemini 429 + Groq 400 on every follow-up → one Telegram notice, no drafts, retried next run
+  const fuDown = { error: { message: 'Request failed with status code 429', status: '429' } };
+  const fchkDown = await run('5', 'Check primary LLM (follow-ups)', due.map(() => ({ json: fuDown })), { nodes: { 'Due follow-ups': due } });
+  const fdown = (await run('5', 'Create follow-up drafts (fallback)', due.map(() => ({ json: fuDown })), { nodes: { 'Read Sheet': read, 'Check primary LLM (follow-ups)': fchkDown } }))[0].json;
+  ok(due.length > 1 && fdown.appendMessages.length === 0 && fdown.notices.length === 1 && fdown.notices[0].split('\n•').length === due.length + 1 && fdown.logs.filter(l => l[3] === 'followup_llm_failed').length === due.length, `both LLMs down → ${due.length} failures in ONE notice, logged per contact, no drafts`);
+  ok(/"json"|\bjson\b/i.test(due[0].json.req_fallback.messages.map(m => m.content).join(' ')), 'follow-up request mentions "json" (Groq json_object mode needs it)');
   // QC + approve + send one follow-up in thread
   read = [{ json: sheet.batchGet(['Config', 'Contacts', 'Messages', 'Profile', 'Companies']) }];
   sel = await run('2', 'Select drafts for QC', read, { nodes: { 'Read Sheet': read } });

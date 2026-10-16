@@ -51,7 +51,7 @@ return $input.all().map((it, i) => {
 const VIA = '__VIA__';
 const T = tablesFrom($('Read Sheet').first().json);
 const M = T.Messages;
-const W = Writer(), logs = [], notices = [], appendMessages = [];
+const W = Writer(), logs = [], notices = [], appendMessages = [], failed = [];
 $input.all().forEach((it, i) => {
   let ctx, llm = null, err = '', model;
   if (VIA === 'primary') { ctx = it.json; llm = ctx.llm; model = ctx.llm_model; }
@@ -61,7 +61,7 @@ $input.all().forEach((it, i) => {
     catch (e) { llm = null; err = `primary: ${ctx.llm_error} | fallback: ${e.message}`; }
   }
   const c = ctx.contact, p = ctx.parent;
-  if (!llm) { logs.push(logRow('FollowUps', 'error', 'followup_llm_failed', p.msg_id, c.contact_id, err)); notices.push(`⚠️ Could not draft ${ctx.type} for ${c.full_name} (${c.company}): both LLMs failed. Retrying tomorrow.`); return; }
+  if (!llm) { logs.push(logRow('FollowUps', 'error', 'followup_llm_failed', p.msg_id, c.contact_id, err)); failed.push(`${ctx.type} ${c.full_name} (${c.company})`); return; }
   const id = `${str(ctx.cold.msg_id)}-${ctx.type.toUpperCase()}`;
   appendMessages.push(rowArray(M, {
     msg_id: id, contact_id: c.contact_id, company: c.company, first_name: c.first_name, type: ctx.type, parent_msg_id: p.msg_id,
@@ -70,5 +70,7 @@ $input.all().forEach((it, i) => {
   }));
   logs.push(logRow('FollowUps', 'info', 'followup_drafted', id, c.contact_id, str(llm.body)));
 });
+// one Telegram message for all failures, not one per contact (14 Oct: 10 separate warnings)
+if (failed.length) notices.push(`⚠️ ${failed.length} follow-up(s) not drafted: both LLMs failed. Retrying next hour. See Log.\n• ${failed.join('\n• ')}`);
 heartbeat(W, T, 'LAST_RUN_FOLLOWUPS');
 return [{ json: { data: W.data, logs, notices, appendMessages } }];
